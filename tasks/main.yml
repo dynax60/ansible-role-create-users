@@ -1,0 +1,99 @@
+---
+- name: Include OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+    - "default.yml"
+
+- name: Install bash
+  package: name=bash state=present
+  tags: [packages, bash]
+
+- name: Install zsh
+  package: name=zsh state=present
+  tags: [packages, zsh]
+
+- name: Create symlink /bin/zsh to /usr/local/bin/zsh
+  file: src=/usr/local/bin/zsh dest=/bin/zsh state=link
+  when: ansible_distribution in ['FreeBSD', 'OpenBSD']
+  tags: [packages, zsh]
+
+- name: Create symlink /bin/bash to /usr/local/bin/bash
+  file: src=/usr/local/bin/bash dest=/bin/bash state=link
+  when: ansible_distribution in ['FreeBSD', 'OpenBSD']
+  tags: [packages, bash]
+
+- name: Create groups
+  group: name="{{ user.username }}" state=present
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: user
+    label: [ "{{ user.username }}" ]
+  tags: create_groups
+
+- name: Create users
+  user:
+    name: "{{ user.username }}"
+    group: "{{ user.username }}"
+    password: "{{ user.password }}"
+    groups: wheel
+    append: yes
+    home: "/home/{{ user.username }}"
+    shell: "{{ user.shell }}"
+    update_password: on_create
+    state: present
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: user
+    label: [ "{{ user.username }}", "{{ user.shell }}" ]
+  tags: create_users
+
+- name: Set authorized keys
+  authorized_key:
+    user: "{{ user.username }}"
+    key: "{{ user.pub_keys | flatten | join('\n') }}"
+    state: present
+    manage_dir: true
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: user
+    label: [ "{{ user.username }}" ]
+  when: "user.pub_keys is defined"
+  tags: set_authorizated_keys
+
+- name: Copy .zshrc template to user's home directory
+  template:
+    src: zshrc.j2
+    dest: "~{{ user.username }}/.zshrc"
+    mode: 0644
+    owner: "{{ user.username }}"
+    group: "{{ user.username }}"
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: user
+    label: [ "{{ user.username }}" ]
+  when: "user.shell == '/bin/zsh'"
+  tags: zsh
+
+- block:
+  - name: Adjust sudo(8) config
+    lineinfile:
+      dest: "{{ sudoers }}"
+      state: present
+      backup: yes
+      regexp: '^%wheel'
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+    when: ansible_distribution not in ['OpenBSD']
+
+  - name: Adjust doas(1) config
+    blockinfile:
+      dest: /etc/doas.conf
+      create: yes
+      block: |
+        permit nopass keepenv setenv { ENV PS1 SSH_AUTH_SOCK } :wheel
+    when: ansible_distribution == 'OpenBSD'
+
+  become_method: su
+  tags: visudo
