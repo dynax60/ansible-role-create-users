@@ -47,7 +47,9 @@
   loop_control:
     loop_var: user
     label: [ "{{ user.username }}", "{{ user.shell }}" ]
-  tags: create_users
+  tags: 
+    - create_users
+    - zsh
 
 - name: Set authorized keys
   authorized_key:
