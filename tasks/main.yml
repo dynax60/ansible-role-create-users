@@ -37,7 +37,7 @@
     name: "{{ user.username }}"
     group: "{{ user.username }}"
     password: "{{ user.password }}"
-    groups: wheel
+    groups: "{{ user.supplementary_groups | default(['wheel']) }}"
     append: yes
     home: "/home/{{ user.username }}"
     shell: "{{ user.shell }}"
@@ -47,9 +47,7 @@
   loop_control:
     loop_var: user
     label: [ "{{ user.username }}", "{{ user.shell }}" ]
-  tags: 
-    - create_users
-    - zsh
+  tags: create_users
 
 - name: Set authorized keys
   authorized_key:

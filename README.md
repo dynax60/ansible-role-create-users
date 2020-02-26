@@ -8,6 +8,9 @@ users:
   - username: "user1"
     password: "$2b$06$5/Ov3f4sfa..."
     shell: "/bin/zsh"
+    supplementary_groups:
+        - wheel
+        - docker
     oh_my_zsh:
     ¦ theme: robbyrussell
     ¦ plugins:
