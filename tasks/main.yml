@@ -62,20 +62,6 @@
   when: "user.pub_keys is defined"
   tags: set_authorizated_keys
 
-- name: Copy .zshrc template to user's home directory
-  template:
-    src: zshrc.j2
-    dest: "~{{ user.username }}/.zshrc"
-    mode: 0644
-    owner: "{{ user.username }}"
-    group: "{{ user.username }}"
-  loop: "{{ users }}"
-  loop_control:
-    loop_var: user
-    label: [ "{{ user.username }}" ]
-  when: "user.shell == '/bin/zsh'"
-  tags: zsh
-
 - block:
   - name: Adjust sudo(8) config
     lineinfile:
